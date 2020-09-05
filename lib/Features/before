@@ -1,0 +1,115 @@
+import 'package:flutter/material.dart';
+import 'package:device_apps/device_apps.dart';
+import 'package:Learning_Helper/dbandmodels/Helper.dart';
+import 'trackusage.dart';
+
+class Usage extends StatefulWidget {
+  List<dynamic> truedata;
+  Usage({Key key, this.truedata}) : super(key: key);
+  @override
+  _UsageState createState() => _UsageState();
+}
+
+class _UsageState extends State<Usage> {
+  bool check = false;
+  int count = 0;
+  List<Application> appsnew;
+  Future<List<Application>> getApp() async {
+    return await DeviceApps.getInstalledApplications(
+      includeAppIcons: true,
+      onlyAppsWithLaunchIntent: true,
+    );
+  }
+
+  //  hello(String name) async{
+  //    print("hello");
+  //     return await DbHelp.instance.aselects(name);
+  //   }
+  @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+    print(widget.truedata);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+        appBar: AppBar(
+            leading: IconButton(
+              icon: Icon(Icons.arrow_back),
+              onPressed: () async {
+                  dynamic a = await DbHelp.instance.aselect();
+                  dynamic b = await DbHelp.instance.localselects();
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => TrackUsage(truedata: a,truetime: b,)),
+                  );
+                },
+            )),
+        body: Container(
+          child: FutureBuilder(
+            future: this.getApp(),
+            builder: (context, snap) {
+              if (snap.data == null) {
+                return Center(child: CircularProgressIndicator());
+              } else {
+                if (appsnew == null) appsnew = snap.data;
+                return ListView.builder(
+                  itemCount: appsnew.length,
+                  itemBuilder: (context, position) {
+                    Application app = appsnew[position];
+                    String name = app.packageName.trim().toLowerCase();
+
+                    if (widget.truedata.any((element) =>
+                        element.trim().toLowerCase() == name && count < 1)) {
+                      app.checked = true;
+                    } else if (count < 1) app.checked = false;
+                    return Column(
+                      children: <Widget>[
+                        ListTile(
+                          leading: app is ApplicationWithIcon
+                              ? CircleAvatar(
+                                  backgroundImage: MemoryImage(app.icon),
+                                  backgroundColor: Colors.white,
+                                )
+                              : null,
+                          onTap: () => DeviceApps.openApp(app.packageName),
+                          title: Text("${app.appName}"),
+                          trailing: Checkbox(
+                              value: app.checked,
+                              onChanged: (value) async {
+                                app.checked = value;
+                                if (value) {
+                                  String hi;
+                                  app is ApplicationWithIcon
+                                      ? hi = app.icon.toString()
+                                      : hi = null;
+                                  await DbHelp.instance.ainserts({
+                                    DbHelp.appName: name,
+                                    DbHelp.appReal:
+                                        app.appName.trim().toLowerCase(),
+                                  });
+                                } else {
+                                  await DbHelp.instance.adelete(name);
+                                }
+                                print(await DbHelp.instance.aselect());
+                                this.setState(() {
+                                  this.count++;
+                                });
+                              }),
+                        ),
+                        Divider(
+                          height: 10.0,
+                        )
+                      ],
+                    );
+                  },
+                );
+              }
+            },
+          ),
+        ));
+  }
+}
